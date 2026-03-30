@@ -1,0 +1,16 @@
+{
+    "debug_mode": true,
+    "log_level": "debug",
+    "password": "123456",
+    "secret": "123456",
+    "api_key": "123456",
+    "bind_address": "0.0.0.0",
+    "listen_addr": "0.0.0.0:8080",
+    "host": "0.0.0.0",
+    "tls_enabled": true,
+    "ssl_enabled": true,
+    "use_ssl": true,
+    "algorithm": "none",
+    "encryption": "none",    
+    "cipher": "none"
+}
