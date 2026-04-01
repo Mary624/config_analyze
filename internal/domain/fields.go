@@ -27,10 +27,10 @@ func ConvertResultToResponse(res []Vulnerability) []VulnerabilityResponse {
 }
 
 var hashPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`^[a-f0-9]{32}$`),                     // MD5
-	regexp.MustCompile(`^[a-f0-9]{40}$`),                     // SHA1
-	regexp.MustCompile(`^[a-f0-9]{64}$`),                     // SHA256
-	regexp.MustCompile(`^\$2[aby]\$\d+\$[./A-Za-z0-9]{53}$`), // bcrypt
+	regexp.MustCompile(`^[a-f0-9]{32}$`),
+	regexp.MustCompile(`^[a-f0-9]{40}$`),
+	regexp.MustCompile(`^[a-f0-9]{64}$`),
+	regexp.MustCompile(`^\$2[aby]\$\d+\$[./A-Za-z0-9]{53}$`),
 }
 
 type Level int
