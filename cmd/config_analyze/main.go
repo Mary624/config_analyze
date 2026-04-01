@@ -102,7 +102,7 @@ func main() {
 
 	var configPath string
 	if len(flag.Args()) > 0 {
-		configPath = flag.Args()[0] //flag.String("config", "../../example/config1.json", "Path to configuration file")
+		configPath = flag.Args()[0]
 	}
 
 	hasErr, err := processor.StartRead(configPath, *stdin)
