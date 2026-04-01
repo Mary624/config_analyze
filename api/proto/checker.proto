@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package checker;
 
-option go_package = "vulnerability-checker/api/proto/checker";
+option go_package = "api/proto/checker";
 
 service VulnerabilityChecker {
     rpc CheckConfig(CheckRequest) returns (CheckResponse);
@@ -16,8 +16,7 @@ message CheckResponse {
     repeated Vulnerability vulnerabilities = 1;
 }
 
-message Vulnerability {
-    string type = 1;           
-    string level = 2;        
-    string recommendation = 3;      
+message Vulnerability {    
+    string level = 1;        
+    string recommendation = 2;      
 }

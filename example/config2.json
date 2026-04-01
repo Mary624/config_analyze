@@ -1,0 +1,4 @@
+[
+  {"service": "app1", "debug": true},
+  {"service": "app2", "debug": false}
+]

@@ -1,73 +1,118 @@
 package main
 
 import (
-	"bufio"
+	"config_analyze/internal/domain"
 	"config_analyze/internal/processor/vulnerability"
+	"config_analyze/internal/server/grpc"
 	"config_analyze/internal/server/http"
+	"context"
 	"flag"
-	"fmt"
-	"io"
 	"log"
 	"os"
-	"strings"
+	"os/signal"
+	"sync"
+	"syscall"
 )
 
+var mapConfig = map[string]domain.Field{
+	"debug_mode":   domain.DebugMode{},
+	"debug":        domain.DebugMode{},
+	"log_level":    domain.LogLevel{},
+	"password":     domain.Password{},
+	"secret":       domain.Password{},
+	"api_key":      domain.Password{},
+	"bind_address": domain.Host{},
+	"listen_addr":  domain.Host{},
+	"host":         domain.Host{},
+	"tls_enabled":  domain.Safety{},
+	"ssl_enabled":  domain.Safety{},
+	"use_ssl":      domain.Safety{},
+	"algorithm":    domain.Algorithm{},
+	"encryption":   domain.Algorithm{},
+	"cipher":       domain.Algorithm{},
+}
+
 func main() {
-	http.New().Start(8080)
-	configPath := flag.String("config", "../../example/config1.json", "Path to configuration file")
-	silent := flag.Bool("silent", false, "Silent mode")
+	silent := flag.Bool("s", false, "Silent mode")
+	silentLong := flag.Bool("silent", false, "Silent mode Long")
 	stdin := flag.Bool("stdin", false, "Stdin mode")
+	httpServerMode := flag.Bool("http", false, "HTTP server")
+	httpPort := flag.Int("http-port", 8080, "HTTP port")
+	grpcServerMode := flag.Bool("grpc", false, "GRPC server")
+	grpcPort := flag.Int("grpc-port", 8000, "GRPC port")
 	flag.Parse()
-	if *configPath == "" && !*stdin {
+
+	if *silentLong {
+		*silent = true
+	}
+
+	serverMode := *httpServerMode || *grpcServerMode
+	if len(flag.Args()) < 1 && !serverMode {
 		log.Fatal("no file provided")
 	}
-	var data []byte
-	var err error
-	if *stdin {
-		data, err = readFromStdinWithMarker("CONFIG_END")
-		if err != nil {
-			log.Fatal(err)
+
+	processor := vulnerability.New(mapConfig)
+
+	if serverMode {
+		wg := sync.WaitGroup{}
+		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer cancel()
+
+		var httpServer *http.Server
+		var grpcServer *grpc.Server
+		if *httpServerMode {
+			httpServer = http.New(processor)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := httpServer.Start(*httpPort)
+				if err != nil {
+					log.Println(err)
+					cancel()
+				}
+			}()
 		}
-	} else {
-		data, err = os.ReadFile(*configPath) //"../../example/config1.yaml") //args[0]) //
-		if err != nil {
-			log.Fatal(err)
+		if *grpcServerMode {
+			grpcServer = grpc.New(processor)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := grpcServer.Start(*grpcPort)
+				if err != nil {
+					log.Println(err)
+					cancel()
+				}
+
+			}()
 		}
+		<-ctx.Done()
+		log.Println("Shutting down servers...")
+		if *grpcServerMode {
+			grpcServer.Stop()
+		}
+		if *httpServerMode {
+			err := httpServer.Stop()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		wg.Wait()
+		return
 	}
-	res, err := vulnerability.New().Process(data)
+
+	var configPath string
+	if len(flag.Args()) > 0 {
+		configPath = flag.Args()[0] //flag.String("config", "../../example/config1.json", "Path to configuration file")
+	}
+
+	hasErr, err := processor.StartRead(configPath, *stdin)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(res) > 0 {
-		fmt.Println(string(res))
+	if hasErr {
 		if *silent {
 			os.Exit(0)
 		}
 		os.Exit(1)
 	}
-}
-
-func readFromStdinWithMarker(marker string) ([]byte, error) {
-	reader := bufio.NewReader(os.Stdin)
-	var lines []string
-
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-
-		trimmed := strings.TrimSpace(line)
-		if trimmed == marker {
-			break
-		}
-
-		lines = append(lines, line)
-
-		if err == io.EOF {
-			break
-		}
-	}
-
-	return []byte(strings.Join(lines, "")), nil
 }

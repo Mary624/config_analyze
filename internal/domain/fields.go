@@ -10,7 +10,28 @@ type Vulnerability struct {
 	WrongValue any
 }
 
-var regHash = regexp.MustCompile(`^[A-Z0-9]{32}$`)
+type VulnerabilityResponse struct {
+	Info       string
+	WrongValue any
+}
+
+func ConvertResultToResponse(res []Vulnerability) []VulnerabilityResponse {
+	resResponse := make([]VulnerabilityResponse, 0, len(res))
+	for _, v := range res {
+		resResponse = append(resResponse, VulnerabilityResponse{
+			Info:       v.Field.Info(v.WrongValue),
+			WrongValue: v.WrongValue,
+		})
+	}
+	return resResponse
+}
+
+var hashPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`^[a-f0-9]{32}$`),                     // MD5
+	regexp.MustCompile(`^[a-f0-9]{40}$`),                     // SHA1
+	regexp.MustCompile(`^[a-f0-9]{64}$`),                     // SHA256
+	regexp.MustCompile(`^\$2[aby]\$\d+\$[./A-Za-z0-9]{53}$`), // bcrypt
+}
 
 type Level int
 
@@ -32,15 +53,6 @@ const (
 	Medium
 	High
 )
-
-type VulnerabilityCheck struct {
-	DebugEnabled bool
-	LogLevel     string
-	Password     string
-	Host         string
-	Safety       bool
-	Algorithm    string
-}
 
 type Field interface {
 	Info(value any) string
@@ -98,11 +110,20 @@ func (d Password) Level() Level {
 	return High
 }
 
+func isHash(value string) bool {
+	for _, pattern := range hashPatterns {
+		if pattern.MatchString(value) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p Password) IsNormalValue(value any) bool {
 	if _, ok := value.(string); !ok {
 		return false
 	}
-	return regHash.MatchString(value.(string))
+	return value.(string) != "" && isHash(value.(string))
 }
 
 type Host struct {
@@ -115,7 +136,6 @@ func (h Host) Info(value any) string {
 	return fmt.Sprintf("используется '%s' без ограничений. Поменяйте его на другое значение.", value.(string))
 }
 
-// TODO
 func (d Host) Level() Level {
 	return High
 }
@@ -149,7 +169,6 @@ func (s Safety) IsNormalValue(value any) bool {
 }
 
 type Algorithm struct {
-	Value string
 }
 
 var unsafeAlgorithms = map[string]struct{}{
